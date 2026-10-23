@@ -40,9 +40,11 @@ const getCourses = async (query) => {
     }
   }
 
-  let sortObj = {};
-  if (sort === "price_asc") sortObj.price = 1;
-  if (sort === "price_desc") sortObj.price = -1;
+  // FIX (BUG-036): always sort in a stable order (newest first by default),
+  // so pagination never repeats or skips courses between pages.
+  let sortObj = { createdAt: -1, _id: -1 };
+  if (sort === "price_asc") sortObj = { price: 1, _id: 1 };
+  if (sort === "price_desc") sortObj = { price: -1, _id: 1 };
 
   const skip = (pageNum - 1) * limitNum;
 
@@ -66,6 +68,11 @@ const getCourses = async (query) => {
 };
 
 const getCourseById = async (id) => {
+  // FIX (BUG-016): reject malformed ids before they reach Mongoose, so the
+  // client gets a clean message instead of an internal CastError text.
+  if (!/^[0-9a-fA-F]{24}$/.test(String(id))) {
+    throw new Error("Invalid course id");
+  }
   const course = await Course.findById(id);
   if (!course) throw new Error("Course not found");
   return course;

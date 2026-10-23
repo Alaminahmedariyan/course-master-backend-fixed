@@ -1,12 +1,11 @@
 // controller for course-related routes
 
 const courseService = require("../services/course.service");
-const connectDB = require("../config/db");
 
 const getCourses = async (req, res) => {
   try {
-    // Ensure DB connection before processing request (for serverless)
-    await connectDB();
+    // FIX (BUG-046): the DB connection is already ensured by the middleware
+    // in app.js, so the duplicate connectDB() call was removed.
     const data = await courseService.getCourses(req.query);
     res.json(data);
   } catch (err) {
@@ -20,7 +19,9 @@ const getCourseById = async (req, res) => {
     const course = await courseService.getCourseById(req.params.id);
     res.json(course);
   } catch (err) {
-    res.status(404).json({ message: err.message });
+    // FIX (BUG-016): a malformed id is a client error (400), not "not found"
+    const status = err.message === "Invalid course id" ? 400 : 404;
+    res.status(status).json({ message: err.message });
   }
 };
 
