@@ -11,7 +11,11 @@ const createCourse = async (payload) => {
 };
 
 const updateCourse = async (id, payload) => {
-  const course = await Course.findByIdAndUpdate(id, payload, { new: true });
+  // FIX (BUG-012): runValidators makes the schema rules apply to updates too
+  const course = await Course.findByIdAndUpdate(id, payload, {
+    new: true,
+    runValidators: true,
+  });
   if (!course) throw new Error("Course not found");
   return course;
 };
@@ -36,10 +40,11 @@ const getEnrollments = async (query) => {
     .sort({ createdAt: -1 });
 };
 
-// ✅ NEW: get all assignment submissions (Code-8 bug: queries by courseId instead of course)
+// ✅ NEW: get all assignment submissions (optionally filtered by course)
 const getAssignments = async (query = {}) => {
   const filter = {};
-  if (query.courseId) filter.courseId = query.courseId; // Mongoose schema has 'course', not 'courseId'
+  // FIX (BUG-013): the schema field is `course`, not `courseId`
+  if (query.courseId) filter.course = query.courseId;
 
   const submissions = await AssignmentSubmission.find(filter)
     .populate("student", "name email")
@@ -77,9 +82,21 @@ const reviewAssignment = async (id, payload, adminId) => {
   const { reviewNotes, grade, status } = payload;
 
   const update = {};
-  if (typeof status !== "undefined") update.status = status;
+  // FIX (BUG-014): validate status and grade before saving
+  if (typeof status !== "undefined") {
+    if (!["submitted", "reviewed"].includes(status)) {
+      throw new Error("Invalid status. Use 'submitted' or 'reviewed'");
+    }
+    update.status = status;
+  }
   if (typeof reviewNotes !== "undefined") update.reviewNotes = reviewNotes;
-  if (typeof grade !== "undefined") update.grade = grade;
+  if (typeof grade !== "undefined") {
+    const g = Number(grade);
+    if (Number.isNaN(g) || g < 0 || g > 100) {
+      throw new Error("Grade must be a number between 0 and 100");
+    }
+    update.grade = g;
+  }
   if (adminId) update.reviewer = adminId;
 
   const submission = await AssignmentSubmission.findByIdAndUpdate(id, update, { new: true })

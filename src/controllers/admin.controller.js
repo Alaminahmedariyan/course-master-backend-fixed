@@ -42,7 +42,8 @@ const getEnrollments = async (req, res) => {
 // ✅ NEW: assignments list
 const getAssignments = async (req, res) => {
   try {
-    const data = await adminService.getAssignments();
+    // FIX (BUG-013): pass the query string so the courseId filter works
+    const data = await adminService.getAssignments(req.query);
     res.json(data);
   } catch (err) {
     res.status(400).json({ message: err.message });
