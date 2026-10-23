@@ -2,6 +2,10 @@
 
 const Course = require("../models/Course");
 
+// FIX (BUG-027): escape user input before using it inside a RegExp so that
+// characters like ( or * are treated as plain text (no regex injection/ReDoS).
+const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 const getCourses = async (query) => {
   const {
     page = 1,
@@ -20,8 +24,8 @@ const getCourses = async (query) => {
 
   if (search && typeof search === "string") {
     filter.$or = [
-      { title: { $regex: search, $options: "i" } },
-      { instructorName: { $regex: search, $options: "i" } },
+      { title: { $regex: escapeRegex(search.trim()), $options: "i" } },
+      { instructorName: { $regex: escapeRegex(search.trim()), $options: "i" } },
     ];
   }
 
@@ -44,9 +48,12 @@ const getCourses = async (query) => {
 
   const [courses, total] = await Promise.all([
     Course.find(filter)
+      // FIX (BUG-009): never send quiz answers in the public course list
+      .select("-syllabus.lessons.quiz.correctIndex")
       .sort(sortObj)
       .skip(skip)
-      .limit(limitNum),
+      .limit(limitNum)
+      .lean(),
     Course.countDocuments(filter),
   ]);
 
