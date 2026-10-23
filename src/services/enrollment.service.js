@@ -34,8 +34,13 @@ const getMyEnrollments = async (studentId) => {
     .sort({ createdAt: -1 });
 };
 
-const completeLesson = async (enrollId, lessonId) => {
-  const enrollment = await Enrollment.findById(enrollId);
+const completeLesson = async (enrollId, lessonId, studentId) => {
+  // FIX (BUG-005): only look up enrollments that belong to the logged-in
+  // student, so one user cannot modify another user's progress.
+  const enrollment = await Enrollment.findOne({
+    _id: enrollId,
+    student: studentId,
+  });
   if (!enrollment) throw new Error("Enrollment not found");
 
   // avoid duplicates

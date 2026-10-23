@@ -24,9 +24,12 @@ const myEnrollments = async (req, res) => {
 
 const completeLesson = async (req, res) => {
   try {
+    // FIX (BUG-005): pass the logged-in user's id so the service can verify
+    // that the enrollment belongs to this user.
     const data = await enrollmentService.completeLesson(
       req.params.enrollId,
-      req.body.lessonId
+      req.body.lessonId,
+      req.user.id
     );
     res.json(data);
   } catch (err) {
