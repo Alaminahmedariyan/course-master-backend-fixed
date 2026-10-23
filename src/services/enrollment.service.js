@@ -58,8 +58,10 @@ const completeLesson = async (enrollId, lessonId) => {
   enrollment.progress.percent =
     totalLessons === 0 ? 0 : Math.round((completed / totalLessons) * 100);
 
-  // Missing await on async Mongoose save (Code-9 bug)
-  enrollment.save();
+  // FIX (BUG-004): await the save so the response is sent only after the
+  // data is persisted, and so any save error reaches the controller's catch
+  // instead of becoming an unhandled promise rejection.
+  await enrollment.save();
   return enrollment;
 };
 
