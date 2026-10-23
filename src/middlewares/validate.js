@@ -5,9 +5,13 @@ const validate = (schema) => (req, res, next) => {
     req.body = schema.parse(req.body);
     next();
   } catch (err) {
+    // FIX (BUG-015): Zod v4 exposes the details as `issues` (not `errors`)
     return res.status(400).json({
       message: "Validation error",
-      errors: err.errors,
+      errors: (err.issues || []).map((i) => ({
+        field: i.path.join("."),
+        message: i.message,
+      })),
     });
   }
 };
