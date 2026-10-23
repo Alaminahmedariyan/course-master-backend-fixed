@@ -27,13 +27,22 @@ connectDB().catch((err) => {
 
 const app = express();
 
-app.use(cors());
-// Code-10 bug: custom header restricts allowed methods to GET and POST, breaking PUT/DELETE CORS preflights
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Methods", "GET, POST");
-  next();
-});
+// FIX (BUG-034): the extra middleware that forced "GET, POST" was removed.
+// cors() is configured once with every method the API uses.
+app.use(
+  cors({
+    origin: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 app.use(express.json());
+
+// FIX (BUG-046): the health check now runs before the DB middleware so it
+// still answers when the database is unreachable.
+app.get("/", (req, res) => {
+  res.send("Course Master Backend Running ✅");
+});
 
 // Middleware to ensure DB connection before handling requests
 app.use(async (req, res, next) => {
@@ -44,11 +53,6 @@ app.use(async (req, res, next) => {
     console.error("Database connection middleware error:", err.message);
     res.status(500).json({ message: "Database connection failed", error: err.message });
   }
-});
-
-// health check
-app.get("/", (req, res) => {
-  res.send("Course Master Backend Running ✅");
 });
 
 // mounting auth routes
