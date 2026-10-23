@@ -43,6 +43,17 @@ const completeLesson = async (enrollId, lessonId, studentId) => {
   });
   if (!enrollment) throw new Error("Enrollment not found");
 
+  const course = await Course.findById(enrollment.course);
+  if (!course) throw new Error("Course not found");
+
+  // FIX (BUG-006): accept only lesson ids that really belong to this course.
+  const validLessonIds = course.syllabus.flatMap((mod) =>
+    mod.lessons.map((lesson) => String(lesson._id))
+  );
+  if (!lessonId || !validLessonIds.includes(String(lessonId))) {
+    throw new Error("Lesson does not belong to this course");
+  }
+
   // avoid duplicates
   const alreadyDone = enrollment.progress.completedLessons
     .map(String)
@@ -52,16 +63,13 @@ const completeLesson = async (enrollId, lessonId, studentId) => {
     enrollment.progress.completedLessons.push(lessonId);
   }
 
-  // calculate percent
-  const course = await Course.findById(enrollment.course);
-  const totalLessons = course.syllabus.reduce(
-    (sum, mod) => sum + mod.lessons.length,
-    0
-  );
-
+  // calculate percent (never more than 100)
+  const totalLessons = validLessonIds.length;
   const completed = enrollment.progress.completedLessons.length;
   enrollment.progress.percent =
-    totalLessons === 0 ? 0 : Math.round((completed / totalLessons) * 100);
+    totalLessons === 0
+      ? 0
+      : Math.min(100, Math.round((completed / totalLessons) * 100));
 
   // FIX (BUG-004): await the save so the response is sent only after the
   // data is persisted, and so any save error reaches the controller's catch
